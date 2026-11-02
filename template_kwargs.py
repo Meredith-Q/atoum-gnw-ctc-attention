@@ -68,16 +68,6 @@ template_kwargs = {
     'gA': 10000*pA,                  # Network longrange strength
 
     ###############################################################
-    ## Optional CTC phase dynamics (disabled for the original model)
-
-    'phase_frequency_hz': 40.0,
-    'phase_frequency_spread_hz': 2.0,
-    'phase_coupling_rad_s': 0.0,
-    'phase_gate_strength': 0.0,
-    'phase_lag_rad': 0.0,
-    'phase_plv_window': 100 * ms,
-
-    ###############################################################
     ## Optional attentional gain and sensory re-entry (disabled by default)
 
     'attention_baseline_gain': 1.0,

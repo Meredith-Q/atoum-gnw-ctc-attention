@@ -85,9 +85,11 @@ class MultipleSimulations:
                 total_iterations *= self.moving_params[key][2]
 
             if self.notebook:
-                self.pbar = tqdm(total=total_iterations)
+                self.pbar = tqdm(total=total_iterations, desc="Model simulations", unit="run")
             else:
-                self.pbar = tqdm_notebook(total=total_iterations)
+                self.pbar = tqdm_notebook(
+                    total=total_iterations, desc="Model simulations", unit="run"
+                )
         self.run_loop(self.moving_params,[],[],[])
 
 

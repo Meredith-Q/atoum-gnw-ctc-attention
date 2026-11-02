@@ -27,6 +27,7 @@ pA = br.pA
 nA = br.nA
 Hz = br.Hz
 second = br.second
+ms = br.ms
 
 import plotly as plty
 import plotly.figure_factory as ff
@@ -107,7 +108,6 @@ class Model:
         self.normalize_fln()
         self.set_time()
         self.set_noise()
-        self.set_phase_dynamics()
         self.set_stimulus()
         self.set_attention_dynamics()
         self.set_containers()
@@ -198,27 +198,6 @@ class Model:
         self.xi_2 = np.random.randn(self.n_t, self.n_area)
         self.xi_i = np.random.randn(self.n_t, self.n_area)
 
-    def set_phase_dynamics(self):
-        """Initialize optional regional oscillation phases for CTC experiments."""
-        p = self.network_params
-        self.phase = np.zeros((self.n_t, self.n_area), dtype=float)
-        self.phase[0, :] = np.random.uniform(-np.pi, np.pi, self.n_area)
-        self.phase_frequency = np.random.normal(
-            p.get('phase_frequency_hz', 40.0),
-            p.get('phase_frequency_spread_hz', 0.0),
-            self.n_area,
-        )
-        self.phase_gate_strength = float(p.get('phase_gate_strength', 0.0))
-        self.phase_coupling_rad_s = float(p.get('phase_coupling_rad_s', 0.0))
-        if not 0.0 <= self.phase_gate_strength <= 1.0:
-            raise ValueError("phase_gate_strength must be between 0 and 1")
-        if self.phase_coupling_rad_s < 0.0:
-            raise ValueError("phase_coupling_rad_s must be non-negative")
-
-    def get_phase(self):
-        """Return regional oscillator phases in radians, shape (time, areas)."""
-        return self.phase
-
     def get_attention_gain(self):
         """Return the dimensionless attentional gain over time."""
         return self.attention_gain
@@ -226,12 +205,6 @@ class Model:
     def get_attention_ignition(self):
         """Return the smooth workspace ignition fraction over time (0 to 1)."""
         return self.attention_ignition
-
-    def get_phase_gate(self, phase):
-        """Return directed source-to-target CTC gates for one phase snapshot."""
-        phase_lag = float(self.network_params.get('phase_lag_rad', 0.0))
-        phase_difference = phase[None, :] - phase[:, None] - phase_lag
-        return 1.0 + self.phase_gate_strength * np.cos(phase_difference)
 
     def set_initial_state(self):
         ###################################################################################
@@ -459,7 +432,6 @@ class Model:
         r_1,r_2,r_i = self.r_1,self.r_2,self.r_i
 
         tau_n,gamma_n,tau_a,gamma_a,tau_g,gamma_g,tau_r,dt = p['tau_n'],p['gamma_n'],p['tau_a'],p['gamma_a'],p['tau_g'],p['gamma_g'],p['tau_r'],p['dt']
-        phase_dt_s = float(dt / second)
 
         noise_1, noise_2, noise_i = self.noise_1,self.noise_2,self.noise_i
 
@@ -481,7 +453,6 @@ class Model:
             custom_range = tqdm(custom_range)
 
         for i_t in custom_range:
-
             # Update the smooth ignition signal from the previous time step to
             # avoid an algebraic loop in this explicit Euler model.
             if self.workspace_indices:
@@ -513,25 +484,6 @@ class Model:
                         self.i_reentry[i_t, sensory_idx] = (
                             self.attention_reentry_current * ignition_fraction
                         )
-
-            # Kuramoto-style phase dynamics. The anatomical FLN matrix supplies
-            # the directed inter-areal coupling weights.
-            phase_previous = self.phase[i_t - 1, :]
-            if self.phase_coupling_rad_s == 0.0:
-                phase_interaction = 0.0
-            else:
-                phase_difference = phase_previous[None, :] - phase_previous[:, None]
-                phase_interaction = np.sum(
-                    self.fln_m * np.sin(phase_difference), axis=1
-                )
-            self.phase[i_t, :] = np.mod(
-                phase_previous + phase_dt_s * (
-                    2 * np.pi * self.phase_frequency
-                    + self.phase_coupling_rad_s * phase_interaction
-                ),
-                2 * np.pi,
-            )
-
 
             if self.timer:
                 self.timer_object.initiate('s')
@@ -601,28 +553,20 @@ class Model:
                 self.timer_object.initiate('lr_current')
 
             ## Update longrange currents
-            if self.phase_gate_strength == 0.0:
-                self.i_lr_1[i_t, :] = np.clip((np.dot(s_1n[i_t, :], w_e_n.T) + np.dot(s_1a[i_t, :], w_e_a.T)), 0*pA, 300*pA) # Equation (16) & (17) & (18)
-                self.i_lr_2[i_t, :] = np.clip((np.dot(s_2n[i_t, :], w_e_n.T) + np.dot(s_2a[i_t, :], w_e_a.T)), 0*pA, 300*pA) # Equation (16) & (17) & (18)
-                self.i_lr_i[i_t, :] = np.clip((np.dot(s_1n[i_t, :] + s_2n[i_t, :], w_i_n.T) + np.dot(s_1a[i_t, :]+s_2a[i_t, :], w_i_a.T)), 0*pA, 300*pA) # Equation (20) & (19)
-            else:
-                phase_gate = self.get_phase_gate(phase_previous)
-                self.i_lr_1[i_t, :] = np.clip(
-                    np.sum(w_e_n * phase_gate * s_1n[i_t, :][None, :], axis=1)
-                    + np.sum(w_e_a * phase_gate * s_1a[i_t, :][None, :], axis=1),
-                    0*pA, 300*pA,
-                )
-                self.i_lr_2[i_t, :] = np.clip(
-                    np.sum(w_e_n * phase_gate * s_2n[i_t, :][None, :], axis=1)
-                    + np.sum(w_e_a * phase_gate * s_2a[i_t, :][None, :], axis=1),
-                    0*pA, 300*pA,
-                )
-                self.i_lr_i[i_t, :] = np.clip(
-                    np.sum(w_i_n * phase_gate * (s_1n[i_t, :] + s_2n[i_t, :])[None, :], axis=1)
-                    + np.sum(w_i_a * phase_gate * (s_1a[i_t, :] + s_2a[i_t, :])[None, :], axis=1),
-                    0*pA, 300*pA,
-                )
-            
+            self.i_lr_1[i_t, :] = np.clip(
+                np.dot(s_1n[i_t, :], w_e_n.T) + np.dot(s_1a[i_t, :], w_e_a.T),
+                0*pA, 300*pA,
+            )
+            self.i_lr_2[i_t, :] = np.clip(
+                np.dot(s_2n[i_t, :], w_e_n.T) + np.dot(s_2a[i_t, :], w_e_a.T),
+                0*pA, 300*pA,
+            )
+            self.i_lr_i[i_t, :] = np.clip(
+                np.dot(s_1n[i_t, :] + s_2n[i_t, :], w_i_n.T)
+                + np.dot(s_1a[i_t, :] + s_2a[i_t, :], w_i_a.T),
+                0*pA, 300*pA,
+            )
+
 
             if self.timer:
                 self.timer_object.add_time('lr_current',i_t)
@@ -800,5 +744,126 @@ class Model:
         vigilance_matrix[:,10:] = vigilance_value
         return vigilance_matrix
 
+class RTMAreaModel:
+    """Independent RTM cells, one per named area, with area-specific current input.
 
+    This minimal model contains no inter-area synapses. With identical initial
+    states and inputs, area traces are identical.
+    """
+
+    equations = """
+    dv/dt = (I_app
+        - gNa*m_inf**3*h*(v-vNa)
+        - gK*n**4*(v-vK)
+        - gL*(v-vL))/C_m : volt
+    dh/dt = alpha_h*(1-h)-beta_h*h : 1
+    dn/dt = alpha_n*(1-n)-beta_n*n : 1
+    alpha_m = (1.28/ms)/exprel(-(v/mV+54)/4) : Hz
+    beta_m = (1.4/ms)/exprel((v/mV+27)/5) : Hz
+    alpha_h = (0.128/ms)*exp(-(v/mV+50)/18) : Hz
+    beta_h = (4/ms)/(1+exp(-(v/mV+27)/5)) : Hz
+    alpha_n = (0.16/ms)/exprel(-(v/mV+52)/5) : Hz
+    beta_n = (0.5/ms)*exp(-(v/mV+57)/40) : Hz
+    m_inf = alpha_m/(alpha_m+beta_m) : 1
+    I_app = input_current(t, i) : amp/meter**2
+    """
+
+    def __init__(
+        self,
+        area_names,
+        *,
+        run_duration=500 * br.ms,
+        integration_dt=0.01 * br.ms,
+        base_current=0.0,
+        pulse_current=0.12,
+        pulse_on=100 * br.ms,
+        pulse_off=5000 * br.ms,
+        stimulated_areas=("V4",),
+    ):
+        self.area_names = [
+            name.decode("utf-8") if isinstance(name, bytes) else str(name)
+            for name in area_names
+        ]
+        if not self.area_names:
+            raise ValueError("area_names must contain at least one area")
+        self.run_duration = run_duration
+        self.integration_dt = integration_dt
+        self.base_current = float(base_current)
+        self.pulse_current = float(pulse_current)
+        self.pulse_on = pulse_on
+        self.pulse_off = pulse_off
+        self.stimulated_areas = [
+            name.decode("utf-8") if isinstance(name, bytes) else str(name)
+            for name in stimulated_areas
+        ]
+        missing = [name for name in self.stimulated_areas if name not in self.area_names]
+        if missing:
+            raise ValueError(f"Unknown stimulated area(s): {missing}")
+        if run_duration <= 0 * br.ms or integration_dt <= 0 * br.ms:
+            raise ValueError("run_duration and integration_dt must be positive")
+
+        dt_seconds = float(integration_dt / br.second)
+        duration_seconds = float(run_duration / br.second)
+        n_steps = int(np.ceil(duration_seconds / dt_seconds)) + 1
+        input_times = np.arange(n_steps) * dt_seconds * br.second
+        pulse_active = (
+            (input_times >= pulse_on)
+            & (input_times <= pulse_off)
+        )
+        current_by_area = np.full(len(self.area_names), self.base_current)
+        for area in self.stimulated_areas:
+            current_by_area[self.area_names.index(area)] = self.pulse_current
+        self.input_current_uA_cm2 = np.where(
+            pulse_active[:, None],
+            current_by_area[None, :],
+            self.base_current,
+        )
+        current_array = self.input_current_uA_cm2 * br.uA / br.cm**2
+        input_current = br.TimedArray(current_array, dt=integration_dt)
+
+        namespace = {
+            "C_m": 1.0 * br.uF / br.cm**2,
+            "gNa": 100.0 * br.msiemens / br.cm**2,
+            "gK": 80.0 * br.msiemens / br.cm**2,
+            "gL": 0.1 * br.msiemens / br.cm**2,
+            "vNa": 50.0 * br.mV,
+            "vK": -100.0 * br.mV,
+            "vL": -67.0 * br.mV,
+            "input_current": input_current,
+        }
+        self.group = br.NeuronGroup(
+            len(self.area_names),
+            self.equations,
+            method="rk4",
+            dt=integration_dt,
+            namespace=namespace,
+        )
+        self.group.v = -64.9997224337346 * br.mV
+        self.group.h = 0.596111046346827
+        self.group.n = 0.317681167579781
+        self.voltage_monitor = br.StateMonitor(
+            self.group, "v", record=True, dt=integration_dt
+        )
+        self.network = br.Network(self.group, self.voltage_monitor)
+        self.time_ms = None
+        self.voltage_mv = None
+        self.spike_times_by_area = None
+
+    def run(self):
+        """Run the RTM cells and store voltage and detected spike times."""
+        self.network.run(self.run_duration, namespace={})
+        self.time_ms = np.asarray(self.voltage_monitor.t / br.ms)
+        self.voltage_mv = np.asarray(self.voltage_monitor.v / br.mV).T
+        self.input_current_uA_cm2 = self.input_current_uA_cm2[:len(self.time_ms)]
+
+        self.spike_times_by_area = []
+        for area_idx in range(len(self.area_names)):
+            voltage = self.voltage_mv[:, area_idx]
+            peaks = np.flatnonzero(
+                (voltage[1:-1] > voltage[:-2])
+                & (voltage[1:-1] >= voltage[2:])
+                & (voltage[1:-1] > -10.0)
+            ) + 1
+            self.spike_times_by_area.append(self.time_ms[peaks])
+        return self.voltage_mv
 

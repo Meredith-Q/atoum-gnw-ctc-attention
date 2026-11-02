@@ -187,9 +187,7 @@ def get_full_kwargs(kwargs):
     temp_kwargs = dict(kwargs)
 
     dynamic_model_keys = [
-        'phase_frequency_hz', 'phase_frequency_spread_hz',
-        'phase_coupling_rad_s', 'phase_gate_strength', 'phase_lag_rad',
-        'phase_plv_window', 'attention_baseline_gain', 'attention_task_gain',
+        'attention_baseline_gain', 'attention_task_gain',
         'attention_task_tau', 'attention_task_on', 'attention_task_off',
         'attention_reentry_gain',
         'attention_ignition_threshold_hz', 'attention_ignition_slope_hz',
@@ -591,7 +589,7 @@ def plot_bf(ss,INN,w,col=None,row=None,fig=None):
                     #yaxis=dict(range=[0,.16]),
                     xaxis_title="I_A",
                     yaxis_title="I_B",
-                    title='I_1^A\ I_1^B Bifurcation Diagrams',
+                    title=r'I_1^A\ I_1^B Bifurcation Diagrams',
                     height=600,
                     width=600,
                 )

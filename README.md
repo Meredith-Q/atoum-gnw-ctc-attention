@@ -1,6 +1,6 @@
-# AToum: GNW–CTC Attention Model
+# AToum: RTM Simulation Baseline
 
-AToum is a large-scale macaque cortex model being extended to study Global Neuronal Workspace (GNW) ignition, communication through coherence (CTC), and attention-related gain. The repository includes the model, simulation helpers, source data, paper figure notebook, and a provisional GNW/CTC baseline notebook. Attention-related effects and workspace labels remain configurable research hypotheses; see the notebooks before interpreting outputs.
+This project contains a macaque cortex population model and an introductory RTM simulation. The current baseline notebook isolates RTM cells, assigns one cell to each area, and plots voltage and spike responses to a V4 input pulse. The original large-scale model and paper figure workflow remain available separately.
 
 ## Environment
 
@@ -17,7 +17,7 @@ jupyter lab
 
 Alternatively, create the recommended Conda environment with `conda env create -f environment.yml` and activate it using `conda activate atoum`.
 
-Open `final_notebooks/GNW CTC Baseline.ipynb` for the provisional baseline or `final_notebooks/Figure 2 - XX.ipynb` for the original figure workflow. Select the `Python (atoum)` kernel and launch Jupyter from the repository root.
+Open `final_notebooks/RTM Baseline.ipynb` for the RTM-only walkthrough or `final_notebooks/Figure 2 - XX.ipynb` for the original figure workflow. Select the `Python (atoum)` kernel and launch Jupyter from the repository root.
 
 On Windows, Brian2 simulations should use its NumPy code-generation backend; C++ standalone mode may require a separate compiler toolchain.
 
@@ -29,7 +29,9 @@ On Windows, Brian2 simulations should use its NumPy code-generation backend; C++
 - `toolboxes/`: network/model helper functions and notebook-facing utilities.
 - `data/`: connectivity inputs, spine counts, and paper figure data.
 - `final_notebooks/`: notebook used to generate paper figures.
-- `gnw_metrics.py`: workspace ignition and phase-locking metrics used by the baseline notebook.
+- `final_notebooks/RTM Baseline.ipynb`: step-by-step simulation of one RTM cell per area, with V4-only input and voltage/spike plots.
+
+The RTM equations and initial state follow the supplied `RTMmodel.m`. The MATLAB file does not specify current units; the notebook provisionally interprets the pulse amplitude as `µA/cm²`. The V4-only input is a regionalized teaching example; the MATLAB source itself describes a single cell, not an area-specific cortical network. Identical unstimulated RTM cells have identical inputs and initial states, so their traces overlap. Inter-area connections are not included in this baseline.
 
 ## Known issues
 
