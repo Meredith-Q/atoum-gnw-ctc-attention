@@ -745,14 +745,15 @@ class Model:
         return vigilance_matrix
 
 class RTMAreaModel:
-    """Independent RTM cells, one per named area, with area-specific current input.
+    """One local RTM/WB excitatory-inhibitory pair per named area.
 
-    This minimal model contains no inter-area synapses. With identical initial
-    states and inputs, area traces are identical.
+    The RTM cell is the excitatory cell and the Wang-Buzsaki (WB) cell is the
+    local inhibitory interneuron. They are connected within each area only;
+    there are no inter-area synapses in this model.
     """
 
     equations = """
-    dv/dt = (I_app
+    dv/dt = (I_app + I_inh
         - gNa*m_inf**3*h*(v-vNa)
         - gK*n**4*(v-vK)
         - gL*(v-vL))/C_m : volt
@@ -765,7 +766,28 @@ class RTMAreaModel:
     alpha_n = (0.16/ms)/exprel(-(v/mV+52)/5) : Hz
     beta_n = (0.5/ms)*exp(-(v/mV+57)/40) : Hz
     m_inf = alpha_m/(alpha_m+beta_m) : 1
-    I_app = input_current(t, i) : amp/meter**2
+    I_app = input_current(t, area_index) : amp/meter**2
+    I_inh = g_inh*(E_inh-v) : amp/meter**2
+    dg_inh/dt = -g_inh/tau_inh : siemens/meter**2
+    area_index : integer (constant)
+    """
+
+    wb_equations = """
+    dv/dt = (I_app - gNa*m_inf**3*h*(v-vNa)
+        - gK*n**4*(v-vK) - gL*(v-vL) + I_exc)/C_m : volt
+    dh/dt = alpha_h*(1-h)-beta_h*h : 1
+    dn/dt = alpha_n*(1-n)-beta_n*n : 1
+    alpha_m = (1/ms)/exprel(-(v/mV+35)/10) : Hz
+    beta_m = 4*exp(-(v/mV+60)/18)/ms : Hz
+    alpha_h = 0.07*exp(-(v/mV+58)/20)/ms : Hz
+    beta_h = 1/(1+exp(-(v/mV+28)/10))/ms : Hz
+    alpha_n = (0.1/ms)/exprel(-(v/mV+34)/10) : Hz
+    beta_n = 0.125*exp(-(v/mV+44)/80)/ms : Hz
+    m_inf = alpha_m/(alpha_m+beta_m) : 1
+    I_app = 0*amp/meter**2 : amp/meter**2
+    I_exc = g_exc*(E_exc-v) : amp/meter**2
+    dg_exc/dt = -g_exc/tau_exc : siemens/meter**2
+    area_index : integer (constant)
     """
 
     def __init__(
@@ -779,6 +801,8 @@ class RTMAreaModel:
         pulse_on=100 * br.ms,
         pulse_off=5000 * br.ms,
         stimulated_areas=("V4",),
+        wb_inhibition_conductance=0.5 * br.msiemens / br.cm**2,
+        excitatory_to_wb_conductance=0.1 * br.msiemens / br.cm**2,
     ):
         self.area_names = [
             name.decode("utf-8") if isinstance(name, bytes) else str(name)
@@ -792,6 +816,8 @@ class RTMAreaModel:
         self.pulse_current = float(pulse_current)
         self.pulse_on = pulse_on
         self.pulse_off = pulse_off
+        self.wb_inhibition_conductance = wb_inhibition_conductance
+        self.excitatory_to_wb_conductance = excitatory_to_wb_conductance
         self.stimulated_areas = [
             name.decode("utf-8") if isinstance(name, bytes) else str(name)
             for name in stimulated_areas
@@ -829,11 +855,17 @@ class RTMAreaModel:
             "vNa": 50.0 * br.mV,
             "vK": -100.0 * br.mV,
             "vL": -67.0 * br.mV,
+            "E_inh": -75.0 * br.mV,
+            "E_exc": 0.0 * br.mV,
+            "tau_inh": 10.0 * br.ms,
+            "tau_exc": 2.0 * br.ms,
             "input_current": input_current,
         }
         self.group = br.NeuronGroup(
             len(self.area_names),
             self.equations,
+            threshold="v > 0*mV",
+            reset="v = -65*mV",
             method="rk4",
             dt=integration_dt,
             namespace=namespace,
@@ -841,29 +873,78 @@ class RTMAreaModel:
         self.group.v = -64.9997224337346 * br.mV
         self.group.h = 0.596111046346827
         self.group.n = 0.317681167579781
+        self.group.area_index = np.arange(len(self.area_names), dtype=int)
+        self.group.g_inh = 0 * br.siemens / br.meter**2
+        self.wb_group = br.NeuronGroup(
+            len(self.area_names),
+            self.wb_equations,
+            threshold="v > 0*mV",
+            reset="v = -65*mV",
+            method="exponential_euler",
+            dt=integration_dt,
+            namespace={
+                "C_m": 1.0 * br.uF / br.cm**2,
+                "gNa": 35.0 * br.msiemens / br.cm**2,
+                "gK": 9.0 * br.msiemens / br.cm**2,
+                "gL": 0.1 * br.msiemens / br.cm**2,
+                "vNa": 55.0 * br.mV,
+                "vK": -90.0 * br.mV,
+                "vL": -65.0 * br.mV,
+                "E_exc": 0.0 * br.mV,
+                "tau_exc": 2.0 * br.ms,
+            },
+        )
+        self.wb_group.v = -65.0 * br.mV
+        self.wb_group.h = 0.6
+        self.wb_group.n = 0.3
+        self.wb_group.area_index = np.arange(len(self.area_names), dtype=int)
+        self.wb_group.g_exc = 0 * br.siemens / br.meter**2
+
+        self.e_to_i = br.Synapses(
+            self.group, self.wb_group,
+            on_pre="g_exc_post += g_exc_jump",
+            namespace={"g_exc_jump": excitatory_to_wb_conductance},
+        )
+        self.e_to_i.connect(j="i")
+        self.i_to_e = br.Synapses(
+            self.wb_group, self.group,
+            on_pre="g_inh_post += g_inh_jump",
+            namespace={"g_inh_jump": wb_inhibition_conductance},
+        )
+        self.i_to_e.connect(j="i")
         self.voltage_monitor = br.StateMonitor(
             self.group, "v", record=True, dt=integration_dt
         )
-        self.network = br.Network(self.group, self.voltage_monitor)
+        self.wb_voltage_monitor = br.StateMonitor(
+            self.wb_group, "v", record=True, dt=integration_dt
+        )
+        self.spike_monitor_e = br.SpikeMonitor(self.group)
+        self.spike_monitor_i = br.SpikeMonitor(self.wb_group)
+        self.network = br.Network(
+            self.group, self.wb_group, self.e_to_i, self.i_to_e,
+            self.voltage_monitor, self.wb_voltage_monitor,
+            self.spike_monitor_e, self.spike_monitor_i,
+        )
         self.time_ms = None
         self.voltage_mv = None
+        self.wb_voltage_mv = None
         self.spike_times_by_area = None
+        self.wb_spike_times_by_area = None
 
     def run(self):
-        """Run the RTM cells and store voltage and detected spike times."""
+        """Run local RTM/WB circuits and store voltages and spike times."""
         self.network.run(self.run_duration, namespace={})
         self.time_ms = np.asarray(self.voltage_monitor.t / br.ms)
         self.voltage_mv = np.asarray(self.voltage_monitor.v / br.mV).T
+        self.wb_voltage_mv = np.asarray(self.wb_voltage_monitor.v / br.mV).T
         self.input_current_uA_cm2 = self.input_current_uA_cm2[:len(self.time_ms)]
-
-        self.spike_times_by_area = []
-        for area_idx in range(len(self.area_names)):
-            voltage = self.voltage_mv[:, area_idx]
-            peaks = np.flatnonzero(
-                (voltage[1:-1] > voltage[:-2])
-                & (voltage[1:-1] >= voltage[2:])
-                & (voltage[1:-1] > -10.0)
-            ) + 1
-            self.spike_times_by_area.append(self.time_ms[peaks])
+        self.spike_times_by_area = [
+            np.asarray(self.spike_monitor_e.spike_trains()[i] / br.ms)
+            for i in range(len(self.area_names))
+        ]
+        self.wb_spike_times_by_area = [
+            np.asarray(self.spike_monitor_i.spike_trains()[i] / br.ms)
+            for i in range(len(self.area_names))
+        ]
         return self.voltage_mv
 
