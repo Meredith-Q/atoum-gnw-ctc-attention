@@ -31,6 +31,7 @@ On Windows, Brian2 simulations should use its NumPy code-generation backend; C++
 - `final_notebooks/`: notebook used to generate paper figures.
 - `final_notebooks/RTM Baseline.ipynb`: step-by-step simulation of one RTM excitatory cell and one WB inhibitory interneuron per area, with local reciprocal synapses and V4-only input.
 - `final_notebooks/RTM Inter-area Connectivity.ipynb`: one RTM cell per area connected by FLN-weighted projections, comparing V4 stimulation with inter-area links disabled and enabled.
+- `final_notebooks/RTM-WB Local Networks and FLN.ipynb`: one RTM cell and 40 locally connected WB cells per area, with FLN-weighted RTM projections between areas.
 
 The RTM equations and initial state follow the supplied `RTMmodel.m`; the local inhibitory cell uses Wang–Buzsaki dynamics. The MATLAB file does not specify current units; the notebooks provisionally interpret the pulse amplitude as `µA/cm²`. Each area currently contains just one RTM/WB pair in the local-circuit baseline, so it is not a population model. The separate inter-area notebook uses one RTM cell per area and the project's FLN matrix to demonstrate directional, weighted activity propagation. The V4-only input and inter-area conductance scale are provisional teaching parameters.
 
