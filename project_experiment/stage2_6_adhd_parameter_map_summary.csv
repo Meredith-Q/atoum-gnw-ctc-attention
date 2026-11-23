@@ -1,0 +1,6 @@
+condition,n,ignition_probability,mean_latency_ms,latency_variance_success_ms2,mean_peak_W_hz
+baseline,5,0.8,40.0,1296.6666666666667,26.163841775508182
+combined_perturbation,5,0.8,80.0,11955.333333333334,23.10154813889943
+lower_task_gain,5,0.8,55.0,3600.6666666666665,23.275783270053157
+slower_synchrony,5,0.8,46.0,2304.6666666666665,25.86802570169123
+weaker_competition_suppression,5,0.8,40.0,1296.6666666666667,25.858274331079762

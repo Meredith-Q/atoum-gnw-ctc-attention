@@ -423,6 +423,15 @@ class Model:
             p = self.network_params
             return self.f_i(i[i_t, :], p['g_i'], p['c_1'], p['c_0'], p['r_0'])
 
+    def get_longrange_gate_matrix(self, i_t):
+        """Optional target-by-source gate for long-range E-to-E inputs.
+
+        The original model returns ``None`` so its long-range currents are
+        calculated exactly as before. Extensions can override this hook and
+        return a non-negative matrix with shape ``(n_area, n_area)``.
+        """
+        return None
+
 
 
     def run(self):
@@ -553,14 +562,39 @@ class Model:
                 self.timer_object.initiate('lr_current')
 
             ## Update longrange currents
-            self.i_lr_1[i_t, :] = np.clip(
-                np.dot(s_1n[i_t, :], w_e_n.T) + np.dot(s_1a[i_t, :], w_e_a.T),
-                0*pA, 300*pA,
-            )
-            self.i_lr_2[i_t, :] = np.clip(
-                np.dot(s_2n[i_t, :], w_e_n.T) + np.dot(s_2a[i_t, :], w_e_a.T),
-                0*pA, 300*pA,
-            )
+            longrange_gate = self.get_longrange_gate_matrix(i_t)
+            if longrange_gate is None:
+                # Preserve the original ungated model path and its arithmetic.
+                self.i_lr_1[i_t, :] = np.clip(
+                    np.dot(s_1n[i_t, :], w_e_n.T) + np.dot(s_1a[i_t, :], w_e_a.T),
+                    0*pA, 300*pA,
+                )
+                self.i_lr_2[i_t, :] = np.clip(
+                    np.dot(s_2n[i_t, :], w_e_n.T) + np.dot(s_2a[i_t, :], w_e_a.T),
+                    0*pA, 300*pA,
+                )
+            else:
+                longrange_gate = np.asarray(longrange_gate, dtype=float)
+                expected_shape = (self.n_area, self.n_area)
+                if longrange_gate.shape != expected_shape:
+                    raise ValueError(
+                        "Long-range gate must have target-by-source shape "
+                        f"{expected_shape}; got {longrange_gate.shape}"
+                    )
+                if not np.all(np.isfinite(longrange_gate)) or np.any(longrange_gate < 0):
+                    raise ValueError("Long-range gate must be finite and non-negative")
+                gated_w_e_n = w_e_n * longrange_gate
+                gated_w_e_a = w_e_a * longrange_gate
+                self.i_lr_1[i_t, :] = np.clip(
+                    np.dot(s_1n[i_t, :], gated_w_e_n.T)
+                    + np.dot(s_1a[i_t, :], gated_w_e_a.T),
+                    0*pA, 300*pA,
+                )
+                self.i_lr_2[i_t, :] = np.clip(
+                    np.dot(s_2n[i_t, :], gated_w_e_n.T)
+                    + np.dot(s_2a[i_t, :], gated_w_e_a.T),
+                    0*pA, 300*pA,
+                )
             self.i_lr_i[i_t, :] = np.clip(
                 np.dot(s_1n[i_t, :] + s_2n[i_t, :], w_i_n.T)
                 + np.dot(s_1a[i_t, :] + s_2a[i_t, :], w_i_a.T),

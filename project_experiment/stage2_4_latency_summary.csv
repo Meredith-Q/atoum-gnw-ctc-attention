@@ -1,0 +1,5 @@
+condition,K_rad_s,ignition_probability,mean_ignition_latency_ms,sd_ignition_latency_ms,phase_lock_probability,mean_lock_latency_ms,mean_lock_time_ms,mean_R
+coupled,2.0,0.8,64.25,81.17214218355129,0.6,131.0,181.0,0.94250273293657
+coupled,2.5,0.8,57.25,67.17328337962944,0.6,132.66666666666666,182.66666666666666,0.9414944572884212
+coupled,3.0,0.8,49.25,51.1753521401335,0.8,111.5,161.5,0.9430038811164977
+no_phase_control,0.0,0.0,,,0.0,,,0.9644640316833133

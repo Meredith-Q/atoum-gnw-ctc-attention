@@ -1,0 +1,4 @@
+condition,ignition_probability,mean_latency_ms,latency_variance_ms2,mean_W_after_hz,mean_above_threshold_after_ms
+A_target_decay,1.0,84.2,20459.199999999997,11.736484899083932,10.4
+B_competition,0.8,20.25,14.916666666666666,11.724265128340356,12.0
+C_resource,0.8,20.25,14.916666666666666,11.72982250689839,12.0
