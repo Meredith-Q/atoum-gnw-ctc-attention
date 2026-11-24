@@ -1,0 +1,3 @@
+workspace_reentry_current_pA,n,ignited,ignition_probability,ignition_wilson95_low,ignition_wilson95_high,poststim_ignited,poststim_ignition_probability,poststim_wilson95_low,poststim_wilson95_high,median_latency_ms,mean_workspace_poststim_hz,max_poststim_duration_above20_ms,max_single_area_rate_hz
+0.0,24,2,0.08333333333333333,0.023158327842973503,0.258492152014506,0,0.0,0.0,0.13798057582897535,248.25,16.940537458400794,0.0,49.11144671671415
+50.0,24,24,1.0,0.8620194241710247,1.0,24,1.0,0.8620194241710247,1.0,197.0,26.62750606336364,550.5,52.44978903653216

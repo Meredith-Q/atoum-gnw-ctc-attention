@@ -1,0 +1,5 @@
+workspace_reentry_current_pA,comparison,n_paired_seeds,A_only_ignited,control_only_ignited,paired_ignition_risk_difference,mcnemar_exact_two_sided_p,A_mean_R,control_mean_R,A_mean_MI_corrected_bits,control_mean_MI_corrected_bits
+0.0,A_dynamic_gate vs B_common_drive_no_link,4,2,0,0.5,0.5,0.7588205001463839,0.9792591414538294,0.030541360273413976,0.03982106798364676
+0.0,A_dynamic_gate vs C_one_way_phase_drag,4,1,1,0.0,1.0,0.7588205001463839,0.9816057081638652,0.030541360273413976,0.012311616449004636
+50.0,A_dynamic_gate vs B_common_drive_no_link,4,4,0,1.0,0.125,0.7588205001463839,0.9792591414538294,0.06396458222135853,0.03982106798364676
+50.0,A_dynamic_gate vs C_one_way_phase_drag,4,0,0,0.0,1.0,0.7588205001463839,0.9816057081638652,0.06396458222135853,0.0707365170149927

@@ -1,0 +1,2 @@
+comparison,n_seeds,feedback_only_ignition,off_only_ignition,paired_ignition_difference,mcnemar_exact_two_sided_p,mcnemar_exact_one_sided_p,feedback_only_poststim_ignition,off_only_poststim_ignition,paired_poststim_ignition_difference,poststim_mcnemar_two_sided_p
+50pA feedback minus off,24,22,0,0.9166666666666666,4.76837158203125e-07,2.384185791015625e-07,24,0,1.0,1.1920928955078125e-07

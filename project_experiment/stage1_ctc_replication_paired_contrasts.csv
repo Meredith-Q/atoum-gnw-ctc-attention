@@ -1,9 +1,9 @@
 stimulus_drive,K_rad_s,control,A_ignition_probability,control_ignition_probability,paired_difference_A_minus_control,paired_bootstrap_95ci_low,paired_bootstrap_95ci_high,A_only_pairs,control_only_pairs,mcnemar_one_sided_p,holm_adjusted_p_primary_A_vs_C
-0.12,2.0,C_one_way_phase_drag,0.87,0.65,0.22,0.14,0.3,22,0,2.384185791015625e-07,9.5367431640625e-07
-0.12,2.0,B_common_drive_no_link,0.87,0.0,0.87,0.8,0.93,87,0,6.462348535570529e-27,
-0.12,3.0,C_one_way_phase_drag,0.94,0.74,0.2,0.12,0.28,20,0,9.5367431640625e-07,2.86102294921875e-06
-0.12,3.0,B_common_drive_no_link,0.94,0.0,0.94,0.89,0.98,94,0,5.048709793414476e-29,
-0.14,2.0,C_one_way_phase_drag,0.93,0.81,0.12,0.06,0.19,13,1,0.00091552734375,0.0018310546875
-0.14,2.0,B_common_drive_no_link,0.93,0.0,0.93,0.87,0.98,93,0,1.0097419586828951e-28,
-0.14,3.0,C_one_way_phase_drag,0.96,0.86,0.1,0.03,0.17,12,2,0.0064697265625,0.0064697265625
-0.14,3.0,B_common_drive_no_link,0.96,0.0,0.96,0.92,0.99,96,0,1.262177448353619e-29,
+0.12,2.0,C_one_way_phase_drag,0.0,0.0,0.0,0.0,0.0,0,0,1.0,1.0
+0.12,2.0,B_common_drive_no_link,0.0,0.0,0.0,0.0,0.0,0,0,1.0,
+0.12,3.0,C_one_way_phase_drag,0.0,0.0,0.0,0.0,0.0,0,0,1.0,1.0
+0.12,3.0,B_common_drive_no_link,0.0,0.0,0.0,0.0,0.0,0,0,1.0,
+0.14,2.0,C_one_way_phase_drag,0.0,0.0,0.0,0.0,0.0,0,0,1.0,1.0
+0.14,2.0,B_common_drive_no_link,0.0,0.0,0.0,0.0,0.0,0,0,1.0,
+0.14,3.0,C_one_way_phase_drag,0.0,0.0,0.0,0.0,0.0,0,0,1.0,1.0
+0.14,3.0,B_common_drive_no_link,0.0,0.0,0.0,0.0,0.0,0,0,1.0,

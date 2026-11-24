@@ -1,0 +1,2 @@
+stimulus_pA,duration_ms,phase_gate_depth,K_rad_s,g_sw,n_seeds,ignited_trials,ignition_probability,wilson95_low,wilson95_high,successful_seeds,successful_latencies_ms
+500.0,1000.0,1.0,10.8,0.95,24,2,0.08333333333333333,0.023158327842973503,0.258492152014506,"12,23","197.5,299.0"
