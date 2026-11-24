@@ -271,6 +271,14 @@ class Model:
         self.attention_task_amplitude = float(p.get('attention_task_gain', 0.0))
         self.attention_reentry_gain = float(p.get('attention_reentry_gain', 0.0))
         self.attention_reentry_current = p.get('attention_reentry_current', 0 * pA)
+        # Optional top-down cue current delivered to a selected frontal area.
+        # A zero default preserves the original AToum equations.
+        self.attention_control_current = p.get('attention_control_current', 0 * pA)
+        self.attention_control_area_index = None
+        # Optional GNW maintenance extension: workspace activity feeds back
+        # onto excitatory populations in the workspace itself. Defaults to 0,
+        # leaving the original AToum equations unchanged.
+        self.workspace_reentry_current = p.get('workspace_reentry_current', 0 * pA)
         self.attention_sensory_floor = p.get('attention_sensory_floor_hz', 5 * Hz)
         self.attention_ignition_threshold = p.get('attention_ignition_threshold_hz', 20 * Hz)
         self.attention_ignition_slope = p.get('attention_ignition_slope_hz', 2 * Hz)
@@ -281,16 +289,30 @@ class Model:
             raise ValueError("attention_ignition_slope_hz must be positive")
 
         area_names = p[b'area_list']
+        control_area = p.get('attention_control_area')
+        if self.attention_control_current < 0 * pA:
+            raise ValueError("attention_control_current must be non-negative")
+        if self.attention_control_current > 0 * pA:
+            if control_area is None:
+                raise ValueError("Set attention_control_area when attention_control_current is positive")
+            if isinstance(control_area, str):
+                control_area = control_area.encode('utf-8')
+            if control_area not in area_names:
+                raise ValueError(f"Unknown attention-control area: {control_area!r}")
+            self.attention_control_area_index = area_names.index(control_area)
         workspace_areas = p.get('workspace_areas', [])
         self.workspace_indices = [area_names.index(area) for area in workspace_areas]
         if (self.attention_reentry_gain > 0 or
-                self.attention_reentry_current > 0 * pA) and not self.workspace_indices:
+                self.attention_reentry_current > 0 * pA or
+                self.workspace_reentry_current > 0 * pA) and not self.workspace_indices:
             raise ValueError(
                 "Set network_params['workspace_areas'] to enable ignition feedback"
             )
 
         task_on = p.get('attention_task_on', p['stim_on'])
         task_off = p.get('attention_task_off', p['stim_off'])
+        self.attention_control_on = p.get('attention_control_on', task_on)
+        self.attention_control_off = p.get('attention_control_off', task_off)
         task_tau = p.get('attention_task_tau', 50 * ms)
         if task_tau <= 0 * ms:
             raise ValueError("attention_task_tau must be positive")
@@ -330,6 +352,8 @@ class Model:
         )
         self.attention_ignition = np.zeros(self.n_t, dtype=float)
         self.i_reentry = np.zeros((self.n_t, self.n_area)) * pA
+        self.i_workspace_reentry = np.zeros((self.n_t, self.n_area)) * pA
+        self.i_attention_control = np.zeros((self.n_t, self.n_area)) * pA
         self.noise_1 = np.zeros((self.n_t, self.n_area)) * pA 
         self.noise_2 = np.zeros((self.n_t, self.n_area)) * pA
         self.noise_i = np.zeros((self.n_t, self.n_area)) * pA
@@ -432,6 +456,10 @@ class Model:
         """
         return None
 
+    def get_attention_task_gain(self, i_t):
+        """Return the task-related multiplicative gain applied to sensory input."""
+        return float(self.attention_task_trace[i_t])
+
 
 
     def run(self):
@@ -462,6 +490,12 @@ class Model:
             custom_range = tqdm(custom_range)
 
         for i_t in custom_range:
+            if (self.attention_control_area_index is not None
+                    and self.attention_control_on <= self.t_plot[i_t] <= self.attention_control_off):
+                self.i_attention_control[i_t, self.attention_control_area_index] = (
+                    self.attention_control_current
+                )
+
             # Update the smooth ignition signal from the previous time step to
             # avoid an algebraic loop in this explicit Euler model.
             if self.workspace_indices:
@@ -479,9 +513,14 @@ class Model:
             self.attention_ignition[i_t] = ignition_fraction
             self.attention_gain[i_t] = (
                 self.attention_baseline_gain
-                + self.attention_task_trace[i_t]
+                + self.get_attention_task_gain(i_t)
                 + self.attention_reentry_gain * ignition_fraction
             )
+
+            if self.workspace_reentry_current > 0 * pA:
+                self.i_workspace_reentry[i_t, self.workspace_indices] = (
+                    self.workspace_reentry_current * ignition_fraction
+                )
 
             # Re-entry is enabled only after a sensory stimulus has occurred
             # and the target sensory population remains active.
@@ -614,8 +653,13 @@ class Model:
                 + self.noise_1[i_t, :] + self.vigilance[i_t, :]
                 + self.i_ext[i_t, :] * self.attention_gain[i_t]
                 + self.i_reentry[i_t, :]
+                + self.i_workspace_reentry[i_t, :]
+                + self.i_attention_control[i_t, :]
             )
-            self.i_2[i_t, :] = self.i_loc_2[i_t, :] + self.i_lr_2[i_t, :] + p['i_bg_e'] + self.noise_2[i_t, :] + self.vigilance[i_t, :] 
+            self.i_2[i_t, :] = (self.i_loc_2[i_t, :] + self.i_lr_2[i_t, :] + p['i_bg_e']
+                                + self.noise_2[i_t, :] + self.vigilance[i_t, :]
+                                + self.i_workspace_reentry[i_t, :]
+                                + self.i_attention_control[i_t, :])
             self.i_i[i_t, :] = self.i_loc_i[i_t, :] + self.i_lr_i[i_t, :] + p['i_bg_i'] + self.noise_i[i_t, :] 
 
             if self.timer:
